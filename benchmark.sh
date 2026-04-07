@@ -18,12 +18,12 @@ run_benchmark() {
     
     start_time=$(date +%s%N)
     
-    # Ejecutamos usando --dir results para que el código generado caiga ahí
-    opencode run $CONTINUE_FLAG \
+    # Ejecutamos usando /usr/bin/time -l para capturar RAM y CPU (macOS)
+    /usr/bin/time -l opencode run $CONTINUE_FLAG \
         --agent "$AGENT_NAME" \
         --model "$MODEL_ID" \
         --dir "results" \
-        "$MESSAGE" | awk 'NR==1 { system("date +%s%N > .ttft_tmp") } { print }'
+        "$MESSAGE" 2> "results/resource_$AGENT_NAME.log" | awk 'NR==1 { system("date +%s%N > .ttft_tmp") } { print }'
     
     # Nota: Si tu versión de opencode no soporta --dir, podemos usar cd results && opencode ... && cd ..
     

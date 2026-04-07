@@ -1,25 +1,30 @@
-# 🚀 Gemma-4 Local Benchmark (OpenCode Edition)
+# 🚀 Local Benchmark (OpenCode Edition)
 
-Este repositorio contiene un framework de pruebas automatizado para medir el rendimiento del modelo **Gemma-4-26B-A4B** (Arquitectura MoE) en tareas de ingeniería de software local, utilizando **OpenCode** como orquestador y **LM Studio** como motor de inferencia.
+Este repositorio contiene un framework de pruebas automatizado para medir el rendimiento de modelos de lenguaje locales en tareas de ingeniería de software, utilizando **OpenCode** como orquestador y **LM Studio** como motor de inferencia.
 
-El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación de Arquitectura** y **Ejecución de Código**, almacenando todos los artefactos en una carpeta aislada.
+> **Aclaración de Modelos:** Aunque el benchmark está pre-configurado para **Gemma-4-26B-A4B**, es compatible con cualquier modelo local (Llama-3, Mistral, Phi-4, etc.) que sea servido mediante una API compatible con OpenAI en LM Studio.
+
+El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación de Arquitectura** (Plan) y **Ejecución de Código** (Build), almacenando todos los artefactos en una carpeta aislada.
 
 ## 📁 Estructura del Proyecto
 
-* `benchmark.sh`: Script de automatización que orquestra los agentes de OpenCode.
+* `benchmark.sh`: Script de automatización que orquestra los agentes de OpenCode y mide recursos.
 * `consolidator.py`: Procesador de métricas que genera el reporte final.
 * `prompt.txt`: Archivo de entrada con el requerimiento técnico.
 * `/results`: Carpeta autogenerada que contiene:
-    * `metrics_raw.jsonl`: Logs de tiempo y TTFT en bruto.
+    * `metrics_raw.jsonl`: Logs de tiempo y TTFT.
+    * `resource_plan.log` / `resource_build.log`: Logs de consumo de RAM/CPU (macOS).
     * `benchmark_report.json`: Reporte consolidado en formato JSON.
     * **Artefactos generados**: Todo el código y archivos `.md` creados por el modelo.
 
 ## 📊 Métricas Capturadas
 
-* **TTFT (Time to First Token):** Latencia inicial (ms). Crucial para medir el tiempo de carga de expertos en modelos MoE.
+* **TTFT (Time to First Token):** Latencia inicial (ms).
 * **Total Time:** Duración completa de la inferencia (segundos).
-* **Tasks (Plan):** Cantidad de hitos o pasos detectados en la estrategia del modelo.
-* **Tasks (Build):** Cantidad de llamadas a herramientas (`tool_calls`) ejecutadas (escritura de archivos, comandos).
+* **Peak RAM:** Consumo máximo de memoria detectado mediante `/usr/bin/time -l` (macOS).
+* **TPS (Tokens Per Second):** Velocidad de generación efectiva (Completion Tokens / Generation Time).
+* **Tasks (Plan/Build):** Hitos detectados en el plan o cantidad de `tool_calls` ejecutadas.
+* **Completeness Check:** Escaneo heurístico de "placeholders" (`TODO`, `...`, `// your code here`) para detectar si el modelo fue perezoso.
 
 ---
 
@@ -71,12 +76,19 @@ python consolidator.py
 
 ## 📈 Ejemplo de Salida en Consola
 
-Al finalizar, verás una comparativa técnica del desempeño:
+Al finalizar, verás una comparativa técnica detallada del desempeño:
 
-| MODELO | MODO | TTFT | TOTAL | TAREAS |
-| :--- | :--- | :--- | :--- | :--- |
-| gemma-4-26b-a4b | plan | 40,474.54ms | 40.64s | 3 |
-| gemma-4-26b-a4b | build | 13,377.56ms | 13.41s | 2 |
+```text
+===============================================================================================
+MODELO               | MODO    | TTFT         | TOTAL    | RAM        | TPS     | TAREAS
+-----------------------------------------------------------------------------------------------
+gemma-4-26b-a4b      | plan    |  35,899.79ms |   36.12s |   419.22MB | 79429.7 | 0
+gemma-4-26b-a4b      | build   |  16,806.02ms |   16.88s |   378.06MB | 277063.1| 1
+-----------------------------------------------------------------------------------------------
+ESTADO DE COMPLETITUD (BUILD): PASS
+===============================================================================================
+Reporte guardado en: results/benchmark_report.json
+```
 
 ---
 
