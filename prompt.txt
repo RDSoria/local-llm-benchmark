@@ -1,0 +1,1 @@
+create a md file with the definition of nextjs, create first a detailed plan to create 4 chapters.
