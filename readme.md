@@ -8,12 +8,13 @@ El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación
 
 ## 📁 Estructura del Proyecto
 
-* `benchmark.sh`: Script de automatización que orquestra los agentes de OpenCode y mide recursos.
-* `consolidator.py`: Procesador de métricas que genera el reporte final.
+* `benchmark.sh`: Script de automatización que orquestra los agentes de OpenCode y mide recursos (RAM de proveedores en tiempo real).
+* `consolidator.py`: Procesador de métricas que genera el reporte final analizando los mensajes de la sesión y los logs de recursos.
 * `prompt.txt`: Archivo de entrada con el requerimiento técnico.
 * `/results`: Carpeta autogenerada que contiene:
     * `metrics_raw.jsonl`: Logs de tiempo y TTFT.
-    * `resource_plan.log` / `resource_build.log`: Logs de consumo de RAM/CPU (macOS).
+    * `resource_plan.log` / `resource_build.log`: Logs de consumo de RAM/CPU de OpenCode (macOS).
+    * `prov_peak_plan.tmp` / `prov_peak_build.tmp`: Picos de RAM detectados en los proveedores.
     * `benchmark_report.json`: Reporte consolidado en formato JSON.
     * **Artefactos generados**: Todo el código y archivos `.md` creados por el modelo.
 
@@ -21,33 +22,30 @@ El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación
 
 * **TTFT (Time to First Token):** Latencia inicial (ms).
 * **Total Time:** Duración completa de la inferencia (segundos).
-* **Peak RAM:** Consumo máximo de memoria detectado mediante `/usr/bin/time -l` (macOS).
+* **OC RAM:** Consumo máximo de memoria del orquestador OpenCode.
+* **Providers RAM (LMS, Ollama, LCPP):** Consumo máximo detectado del motor de inferencia activo. El sistema detecta automáticamente cuál está en uso.
 * **TPS (Tokens Per Second):** Velocidad de generación efectiva (Completion Tokens / Generation Time).
 * **Tasks (Plan/Build):** Hitos detectados en el plan o cantidad de `tool_calls` ejecutadas.
 * **Completeness Check:** Escaneo heurístico de "placeholders" (`TODO`, `...`, `// your code here`) para detectar si el modelo fue perezoso.
 
 ---
 
-## ⚙️ Configuración del Entorno
+## 📈 Ejemplo de Salida en Consola
 
-### Requisitos
-1.  **OpenCode CLI** instalado (Versión 2026).
-2.  **LM Studio** activo en `http://localhost:1234`.
-3.  **Gemma-4-26B-A4B** (o cualquier modelo compatible) cargado.
+Al finalizar, verás una comparativa técnica detallada y alineada del desempeño:
 
-### Configuración de OpenCode (`opencode.json`)
-```json
-{
-  "model": "lmstudio/google/gemma-4-26b-a4b",
-  "provider": {
-    "lmstudio": {
-      "options": {
-        "baseURL": "http://127.0.0.1:1234/v1"
-      }
-    }
-  }
-}
+```text
+=================================================================================================================================================
+MODELO                 | MODO   |      TTFT       |   TOTAL    |   OC RAM   |    LMS     |   Ollama   |    LCPP    |     TPS      | TAREAS
+-------------------------------------------------------------------------------------------------------------------------------------------------
+gemma-4-26b-a4b        | plan   |     49,431.99ms |     49.60s |   409.91MB |   362.56MB |          - |          - |     106162.4 | 0
+gemma-4-26b-a4b        | build  |      9,432.47ms |     32.47s |   363.23MB |   364.17MB |          - |          - |        927.6 | 1
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ESTADO DE COMPLETITUD (BUILD): PASS
+=================================================================================================================================================
+Reporte guardado en: results/benchmark_report.json
 ```
+
 
 ---
 
@@ -79,16 +77,17 @@ python consolidator.py
 Al finalizar, verás una comparativa técnica detallada del desempeño:
 
 ```text
-===============================================================================================
-MODELO               | MODO    | TTFT         | TOTAL    | RAM        | TPS     | TAREAS
------------------------------------------------------------------------------------------------
-gemma-4-26b-a4b      | plan    |  35,899.79ms |   36.12s |   419.22MB | 79429.7 | 0
-gemma-4-26b-a4b      | build   |  16,806.02ms |   16.88s |   378.06MB | 277063.1| 1
------------------------------------------------------------------------------------------------
+==================================================================================================================================
+MODELO             | MODO  | TTFT       | TOTAL   | OC RAM   | LMS      | Ollama   | LCPP     | TPS   | TAREAS
+----------------------------------------------------------------------------------------------------------------------------------
+gemma-4-26b-a4b    | plan  | 35,899.79ms|  36.12s | 419.22MB |   8.45GB |        - |        - | 79429 | 0
+gemma-4-26b-a4b    | build | 16,806.02ms|  16.88s | 378.06MB |   9.12GB |        - |        - | 27706 | 1
+----------------------------------------------------------------------------------------------------------------------------------
 ESTADO DE COMPLETITUD (BUILD): PASS
-===============================================================================================
+==================================================================================================================================
 Reporte guardado en: results/benchmark_report.json
 ```
+
 
 ---
 

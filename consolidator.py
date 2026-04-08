@@ -104,6 +104,25 @@ def check_placeholders():
             continue
     return "FAIL" if placeholders_found > 0 else "PASS"
 
+def extract_provider_ram(mode):
+    tmp_path = os.path.join(RESULTS_DIR, f"prov_peak_{mode}.tmp")
+    res = {"lms": "-", "ollama": "-", "lcpp": "-"}
+    if not os.path.exists(tmp_path): return res
+    
+    try:
+        with open(tmp_path, 'r') as f:
+            parts = f.read().strip().split(':')
+            if len(parts) == 3:
+                lms, ollama, lcpp = [float(p) for p in parts]
+                
+                # Formatear solo el que tenga consumo > 0
+                if lms > 1.0: res["lms"] = f"{lms/1024:.2f}GB" if lms > 1024 else f"{lms:.2f}MB"
+                if ollama > 1.0: res["ollama"] = f"{ollama/1024:.2f}GB" if ollama > 1024 else f"{ollama:.2f}MB"
+                if lcpp > 1.0: res["lcpp"] = f"{lcpp/1024:.2f}GB" if lcpp > 1024 else f"{lcpp:.2f}MB"
+    except:
+        pass
+    return res
+
 def process_benchmark():
     if not os.path.exists(METRICS_LOG):
         print(f"Error: No se encontró {METRICS_LOG}")
@@ -119,12 +138,16 @@ def process_benchmark():
                 ttft_ms = (raw['ttft_ns'] - raw['start_ns']) / 1_000_000
                 total_s = (raw['end_ns'] - raw['start_ns']) / 1_000_000_000
                 
+                prov_ram = extract_provider_ram(raw['step'])
                 entry = {
                     "model": raw['model'].split('/')[-1],
                     "mode": raw['step'],
                     "ttft": f"{ttft_ms:,.2f}ms",
                     "total": f"{total_s:.2f}s",
                     "ram": extract_ram_usage(raw['step']),
+                    "lms": prov_ram["lms"],
+                    "ollama": prov_ram["ollama"],
+                    "lcpp": prov_ram["lcpp"],
                     "tps": "N/A",
                     "tasks": 0,
                     "status": "N/A"
@@ -151,18 +174,21 @@ def process_benchmark():
         json.dump(report_data, out, indent=4)
 
     # Imprimir tabla
-    print(f"\n{'='*95}")
-    print(f"{'MODELO':<20} | {'MODO':<7} | {'TTFT':<12} | {'TOTAL':<8} | {'RAM':<10} | {'TPS':<5} | {'TAREAS'}")
-    print(f"{'-'*95}")
+    # Calculamos el ancho total para las líneas decorativas
+    # MODELO(22) + MODO(6) + TTFT(15) + TOTAL(10) + OC RAM(10) + LMS(10) + Ollama(10) + LCPP(10) + TPS(12) + TAREAS(6) + separadores
+    table_width = 145
+    print(f"\n{'='*table_width}")
+    print(f"{'MODELO':<22} | {'MODO':<6} | {'TTFT':^15} | {'TOTAL':^10} | {'OC RAM':^10} | {'LMS':^10} | {'Ollama':^10} | {'LCPP':^10} | {'TPS':^12} | {'TAREAS'}")
+    print(f"{'-'*table_width}")
     for r in report_data:
-        print(f"{r['model'][:20]:<20} | {r['mode']:<7} | {r['ttft']:>12} | {r['total']:>8} | {r['ram']:>10} | {r['tps']:>5} | {r['tasks']}")
+        print(f"{r['model'][:22]:<22} | {r['mode']:<6} | {r['ttft']:>15} | {r['total']:>10} | {r['ram']:>10} | {r['lms']:>10} | {r['ollama']:>10} | {r['lcpp']:>10} | {r['tps']:>12} | {r['tasks']}")
     
     if any(r['status'] != "N/A" for r in report_data):
         status = next((r['status'] for r in report_data if r['status'] != "N/A"), "N/A")
-        print(f"{'-'*95}")
+        print(f"{'-'*table_width}")
         print(f"ESTADO DE COMPLETITUD (BUILD): {status}")
     
-    print(f"{'='*95}")
+    print(f"{'='*table_width}")
     print(f"Reporte guardado en: {FINAL_REPORT}\n")
 
 if __name__ == "__main__":
