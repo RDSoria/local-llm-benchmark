@@ -79,7 +79,8 @@ run_benchmark() {
 }
 
 # --- FLUJO ---
-MODEL="lmstudio/google/gemma-4-26b-a4b"
+#MODEL="lmstudio/google/gemma-4-26b-a4b"
+MODEL="lmstudio/Jackrong/Qwopus3.5-27B-v3-GGUF"
 PROMPT_CONTENT=$(cat prompt.txt)
 
 # PASO A: PLAN

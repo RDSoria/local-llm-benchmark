@@ -10,6 +10,7 @@ El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación
 
 * `benchmark.sh`: Script de automatización que orquestra los agentes de OpenCode y mide recursos (RAM de proveedores en tiempo real).
 * `consolidator.py`: Procesador de métricas que genera el reporte final analizando los mensajes de la sesión y los logs de recursos.
+* `show_history.py`: Utilidad para visualizar el ranking histórico de ejecuciones almacenado en `history.csv`.
 * `prompt.txt`: Archivo de entrada con el requerimiento técnico.
 * `/results`: Carpeta autogenerada que contiene:
     * `metrics_raw.jsonl`: Logs de tiempo y TTFT.
@@ -28,24 +29,45 @@ El benchmark separa el flujo de trabajo en dos fases críticas: **Planificación
 * **Tasks (Plan/Build):** Hitos detectados en el plan o cantidad de `tool_calls` ejecutadas.
 * **Completeness Check:** Escaneo heurístico de "placeholders" (`TODO`, `...`, `// your code here`) para detectar si el modelo fue perezoso.
 
+## 📊 Historial y Puntuación (Score)
+
+El benchmark mantiene un archivo incremental `history.csv` en la raíz del proyecto. Este archivo consolida las fases de Plan y Build en una sola métrica de rendimiento (Score) calculada de la siguiente manera:
+
+* **Velocidad (40%):** Basado en el TPS promedio. Se normaliza comparando con una referencia de 50 TPS.
+* **Latencia (30%):** Basado en el TTFT total acumulado (Plan + Build). Se normaliza comparando con una referencia de 2000ms.
+* **Eficiencia (20%):** Basado en el consumo total de RAM (OC + Proveedor). Se normaliza comparando con una referencia de 8192MB (8GB).
+* **Calidad (10%):** Basado en el Completeness Check (100 pts si es PASS, 0 pts si es FAIL).
+
+Cada ejecución recibe un **ID único (Short GUID)** de 8 caracteres para evitar colisiones entre dispositivos.
+
 ---
 
-## 📈 Ejemplo de Salida en Consola
+## 📈 Visualización del Historial
 
-Al finalizar, verás una comparativa técnica detallada y alineada del desempeño:
+Para ver una tabla comparativa de todas las ejecuciones, ordenada por puntuación y resaltando la última prueba:
 
-```text
-=================================================================================================================================================
-MODELO                 | MODO   |      TTFT       |   TOTAL    |   OC RAM   |    LMS     |   Ollama   |    LCPP    |     TPS      | TAREAS
--------------------------------------------------------------------------------------------------------------------------------------------------
-gemma-4-26b-a4b        | plan   |     49,431.99ms |     49.60s |   409.91MB |   362.56MB |          - |          - |     106162.4 | 0
-gemma-4-26b-a4b        | build  |      9,432.47ms |     32.47s |   363.23MB |   364.17MB |          - |          - |        927.6 | 1
--------------------------------------------------------------------------------------------------------------------------------------------------
-ESTADO DE COMPLETITUD (BUILD): PASS
-=================================================================================================================================================
-Reporte guardado en: results/benchmark_report.json
+```bash
+python show_history.py
 ```
 
+> **Tip:** Puedes ejecutar todo el flujo (probar, consolidar y ver ranking) con un solo comando:
+> ```bash
+> ./benchmark.sh && python consolidator.py && python show_history.py
+> ```
+
+Esta herramienta te permite comparar fácilmente el rendimiento de diferentes modelos y proveedores a lo largo del tiempo, resaltando automáticamente la ejecución más reciente en amarillo.
+
+**Ejemplo de salida:**
+
+```text
+=============================================================================================================
+ RANK | ID       | MODEL                  | PROV  | TIME(s)  | RAM(MB)    | TPS          | QUAL   | SCORE 
+-------------------------------------------------------------------------------------------------------------
+  1   | 1d70e186 | gemma-4-26b-a4b        | LMS   |    37.61 |     609.08 |    1423009.0 |  PASS  |   71.6 
+  2   | 79d4e24e | Qwopus3.5-27B-v3-GGUF  | LMS   |   550.03 |     965.86 |     995973.8 |  PASS  |   70.1  <--- LATEST
+=============================================================================================================
+Total de ejecuciones: 2
+```
 
 ---
 
@@ -64,28 +86,37 @@ chmod +x benchmark.sh
 ```
 
 ### 3. Procesar y visualizar
-Extrae los datos de la sesión y genera la tabla comparativa:
+Extrae los datos de la sesión y genera el reporte consolidado:
 
 ```bash
 python consolidator.py
 ```
 
+### 4. Ver Ranking
+Compara los resultados con ejecuciones previas:
+
+```bash
+python show_history.py
+```
+
 ---
 
-## 📈 Ejemplo de Salida en Consola
+## 📈 Ejemplo de Salida en Consola (consolidator.py)
 
-Al finalizar, verás una comparativa técnica detallada del desempeño:
+Al finalizar `consolidator.py`, verás una comparativa técnica detallada y alineada del desempeño de la sesión actual:
 
 ```text
-==================================================================================================================================
-MODELO             | MODO  | TTFT       | TOTAL   | OC RAM   | LMS      | Ollama   | LCPP     | TPS   | TAREAS
-----------------------------------------------------------------------------------------------------------------------------------
-gemma-4-26b-a4b    | plan  | 35,899.79ms|  36.12s | 419.22MB |   8.45GB |        - |        - | 79429 | 0
-gemma-4-26b-a4b    | build | 16,806.02ms|  16.88s | 378.06MB |   9.12GB |        - |        - | 27706 | 1
-----------------------------------------------------------------------------------------------------------------------------------
+=================================================================================================================================================
+MODELO                 | MODO   |      TTFT       |   TOTAL    |   OC RAM   |    LMS     |   Ollama   |    LCPP    |     TPS      | TAREAS
+-------------------------------------------------------------------------------------------------------------------------------------------------
+gemma-4-26b-a4b        | plan   |     49,431.99ms |     49.60s |   409.91MB |   362.56MB |          - |          - |     106162.4 | 0
+gemma-4-26b-a4b        | build  |      9,432.47ms |     32.47s |   363.23MB |   364.17MB |          - |          - |        927.6 | 1
+-------------------------------------------------------------------------------------------------------------------------------------------------
 ESTADO DE COMPLETITUD (BUILD): PASS
-==================================================================================================================================
+=================================================================================================================================================
+ID EJECUCIÓN: 23cb808b | PUNTUACIÓN TOTAL: 71.0
 Reporte guardado en: results/benchmark_report.json
+Historial actualizado en: history.csv
 ```
 
 
